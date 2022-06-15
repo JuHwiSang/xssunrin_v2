@@ -1,9 +1,16 @@
 from app.scanner import scan
-from app.xss import reflected
+from app.attacker import xss
+from app.multidriver import Pool
 
-target = "http://139.150.74.9"
+target = "https://0a22003503855d6dc01953740020006f.web-security-academy.net/"
+# target = "https://xss-game.appspot.com/level2/frame"
 
-links = scan(target)
-print("scan result:", links)
-succeed = reflected(links)
-print("reflected result:", succeed)
+pool = Pool(3)
+try:
+    links = scan(target, driver_pool=pool)
+    print("scan result:", links)
+    succeed = xss(links, driver_pool=pool)
+    print("XSS result:", succeed)
+finally:
+    pool.quit()
+    ...

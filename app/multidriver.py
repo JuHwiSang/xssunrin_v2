@@ -1,3 +1,6 @@
+import os
+os.environ['WDM_LOG'] = '50'
+
 from selenium.webdriver import Chrome
 from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import NoAlertPresentException
@@ -6,65 +9,78 @@ from webdriver_manager.chrome import ChromeDriverManager
 from app.web import Link, Page
 from app.logger import logger
 import time
-import os
-os.environ['WDM_LOG'] = '50'
 
-from logging import CRITICAL
 
 # chrome_path = "./chrome/chromedriver.exe"
 chrome_options = Options()
 chrome_options.add_argument("--headless")
 chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
+chrome_options_no_headless = Options()
+chrome_options_no_headless.add_experimental_option('excludeSwitches', ['enable-logging'])
 chrome_path = ChromeDriverManager().install()
 
 
 def create_send_script(method: str, url: str, data: dict[str, str]) -> str:
-    form = 'document.write(`'
-    form += f'<form id="exec" action="{url}" method="{method}">'
+    # form = 'document.write(`'
+    form = f'<form id="exec" action={url!r} method={method!r}>'
+    value_inject_script = ""
     for name, value in data.items():
-        form += f'<input name="{name}" value="{value}">'
+        form += f'<input name={name!r}>'
+        value_inject_script += f"document.querySelector(`input[name={name!r}]`).value={value!r};"
     form += "</form>"
-    form += "`);document.getElementById('exec').submit();"
-    return form
+    script = f"document.write(`{form}`);{value_inject_script};document.getElementById('exec').submit();"
+    # form += "`);document.getElementById('exec').submit();"
+    return script
 
 
-class Driver():
-    driver: Chrome
+class Driver(Chrome):
+    # driver: Chrome
     occupied: bool
 
-    def __init__(self) -> None:
-        self.driver = Chrome(executable_path=chrome_path, chrome_options=chrome_options)
+    # def __init__(self) -> None:
+    #     self.driver = Chrome(executable_path=chrome_path, chrome_options=chrome_options)
+    #     self.occupied = False
+    def __init__(self, *args, **kwargs):
         self.occupied = False
+        default_kwargs = {"executable_path" : chrome_path, "chrome_options" : chrome_options}
+        default_kwargs.update(kwargs)
+        super().__init__(*args, **default_kwargs)
 
     def request(self, link: Link) -> Page:
         if link.method == "GET":
-            self.driver.get(link.uri)
+            self.get(link.uri)
         else:
-            self.driver.get("data:")
-            self.driver.execute_script(create_send_script(link.method, link.uri, link.data))
-        self.driver.implicitly_wait(5)
+            self.get("data:")
+            self.execute_script(create_send_script(link.method, link.uri, link.data))
+        self.implicitly_wait(5)
+        # self.execute_script("alert('um?');") #test
         alerts = self.get_alerts()
-        page = Page(link, self.driver.page_source, alerts)
+        page = Page(link, self.page_source, alerts)
         return page
 
     def get_alerts(self) -> list[str]:
         alerts = []
         while 1:
             try:
-                alert = self.driver.switch_to.alert
+                alert = self.switch_to.alert
+                self.switch_to.active_element
+                # self.switch_to.
                 alerts.append(alert.text)
                 alert.accept()
             except NoAlertPresentException:
                 return alerts
 
-    def quit(self) -> None:
-        self.driver.quit()
+    # def quit(self) -> None:
+    #     self.driver.quit()
 
     def use(self) -> None:
         self.occupied = True
 
     def free(self) -> None:
         self.occupied = False
+
+    def __enter__(self):
+        return super().__enter__()
 
     def __enter__(self) -> "Driver":
         self.use()
@@ -81,7 +97,9 @@ class Pool():
 
     def __init__(self, size: int = 3) -> None:
         self.size = size
+        logger.debug(f"Driver pool({size}) is loading...")
         self.pool = [Driver() for _ in range(size)]
+        logger.debug("Driver pool loading succeed.")
 
     # def requests(self, links: list[Link]) -> None:
     #     for link in links:
@@ -111,12 +129,16 @@ class Pool():
             time.sleep(0.05)
 
     def quit(self) -> None:
+        logger.debug("Driver pool is closing...")
         for driver in self.pool:
             driver.quit()
+        logger.debug("Driver pool closing succeed.")
 
 
-def show(link: Link) -> None:
+def show(link: Link, block: bool = True) -> Page:
     # driver = Chrome(service=Service(ChromeDriverManager().install()), chrome_options=chrome_options)
-    driver = Driver()
-    with driver:
-        driver.request(link)
+    driver = Driver(chrome_options=chrome_options_no_headless)
+    page = driver.request(link)
+    print('out!')
+    if block: input("press enter to continue...")
+    return page

@@ -7,17 +7,27 @@ class Link:
     method: str
     params: dict[str, str]
     data: dict[str, str]
-    def __init__(self, url, method: str = "GET", params={}, data={}) -> None:
+    parent_link: "Link"
+    csrf_token: tuple[str, str] | None
+    def __init__(self, url, method: str = "GET", parent_link: Optional["Link"] = None, params={}, data={}) -> None:
         # self.url = url
         splited = urlsplit(url)
         self.url = f"{splited[0]}://{splited[1]}{splited[2]}".lstrip("://")
         self.params = dict(parse_qsl(splited[3] + "&" + urlencode(params)))
         self.method = method.upper()
-        # self.params = params
+        self.parent_link = parent_link or self
         self.data = data
+        self.csrf_token = self.check_csrf(self.params, self.data)
+
+    def check_csrf(self, params: dict[str, str], data: dict[str, str]) -> tuple[str, str] | None:
+        for method, key in [*map(lambda x:("GET", x), params.keys()), *map(lambda x:("POST", x), data.keys())]:
+            if "csrf" in key:
+                return method, key
+        else:
+            return None
 
     def copy(self, params: dict[str, str] = {}, data: dict[str, str] = {}) -> "Link":
-        return Link(self.url, self.method, {**self.params, **params}, {**self.data, **data})
+        return Link(self.url, self.method, self.parent_link, {**self.params, **params}, {**self.data, **data})
 
     @property
     def uri(self) -> str:
@@ -25,7 +35,10 @@ class Link:
     
     def __eq__(self, __o: object) -> bool:
         if isinstance(__o, Link):
-            return self.url == __o.url and self.method == __o.method
+            same_url = self.url == __o.url
+            same_method = self.method == __o.method
+            same_params = set(self.params.keys()) == set(__o.params.keys()) and set(self.data.keys()) == set(__o.data.keys())
+            return same_url and same_method and same_params
         else:
             return self.url == str(__o)
 
@@ -47,7 +60,7 @@ class Page:
     
     def parse_links(self) -> list[Link]:
         return [link
-                for link in parse_links(self.source, self.link.uri)
+                for link in parse_links(self.source, self.link)
                 if is_samedomain(self.link.url, link.url)]
 
 
@@ -73,23 +86,33 @@ dummy_data = {
 }
 
 #May cause an issue by BeautifulSoup's parsing system: &param=3 -> ¶m=3
-def parse_links(source: str, page_url: str) -> list[Link]:
+def parse_links(source: str, page_link: Link) -> list[Link]:
     soup = bp(source, 'html.parser')
     links = []
     
-    for tag_a in soup.find_all('a'):
-        href = tag_a.get('href', None)
-        if not(href is not None and is_valid_url(href)):
+    # for tag_a in soup.find_all('a'):
+    #     href = tag_a.get('href', None)
+    #     if not(href is not None and is_valid_url(href)):
+    #         continue
+    #     url = urljoin(page_url, href)
+    #     # url = href
+    #     link = Link(url)
+    #     links.append(link)
+    a_href = tuple(map(lambda x: x.get('href', None), soup.find_all('a')))
+    iframe_src = tuple(map(lambda x: x.get('src', None), soup.find_all('iframe')))
+    for attr in a_href + iframe_src:
+        # href = tag_a.get('href', None)
+        if not(attr is not None and is_valid_url(attr)):
             continue
-        url = urljoin(page_url, href)
+        url = urljoin(page_link.uri, attr)
         # url = href
-        link = Link(url)
+        link = Link(url, parent_link=page_link)
         links.append(link)
     
     for tag_form in soup.find_all('form'):
         action = tag_form.get('action', "")
         method = tag_form.get('method', "GET").upper()
-        url = urljoin(page_url, action)
+        url = urljoin(page_link.uri, action)
         # url = action
         inputs: dict[str, str] = {}
         for tag_input in (tag_form.find_all('input') + tag_form.find_all('textarea')):
@@ -102,9 +125,9 @@ def parse_links(source: str, page_url: str) -> list[Link]:
 
         if method == "GET":
             # link = Link(f"{url}?{attach_qs(inputs)}")
-            link = Link(url, params=inputs)
+            link = Link(url, parent_link=page_link, params=inputs)
         elif method == "POST":
-            link = Link(url, method, data=inputs)
+            link = Link(url, method, parent_link=page_link, data=inputs)
         else:
             continue
         links.append(link)
