@@ -1,7 +1,7 @@
 from typing import Optional
 
 import requests
-from app.utils.helpers import add_element_title, split_by_method
+from app.utils.helpers import add_element_title, split_by_method, wait_until
 from app.web import Link, Page
 from app.logger import logger
 from app.utils.counter import Counter
@@ -21,7 +21,8 @@ payload_form = "<script>alert('xssunrin{id}')</script>"
 # payloadlist = get_payloadlist("./payloadlist.txt")
 # payloadform = "10101{idx}10101"
 # regex = re.compile("10101([0-9]+)10101")
-regex = re.compile("xssunrin([0-9]+)")
+payload_regex = re.compile("xssunrin([0-9]+)")
+payload_regex_entire = re.compile("<script>alert\\(\\'xssunrin([0-9]+)\\'\\)</script>")
 # regex.findall()
 # regex.search(alert)
 # regex.pattern
@@ -69,12 +70,7 @@ class AttackLog:
 #         self.param_name = param_name
 #         self.payload = payload
 
-def is_xss(page: Page):
-    for alert in page.alerts:
-        searched = regex.search(alert)
-        if searched is not None:
-            id = int(searched.group(1))
-            return id
+
 
 
 def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool] = None, driver_pool_size: int = 3) -> list[AttackLog]:
@@ -95,12 +91,26 @@ def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool
 
         def _request(link: Link):
             return driver_pool.request(link)
+        def _is_xss(page: Page):
+            for alert in page.alerts:
+                searched = payload_regex.search(alert)
+                if searched is not None:
+                    id = int(searched.group(1))
+                    return id
+            return None
 
     else:
         def _request(link: Link):
-            logger.info(f"{link.method} {link.uri} {link.data}")
+            logger.debug(f"{link.method} {link.uri} {link.data}")
             res = requests.request(link.method, link.url, params=link.params, data=link.data)
             return Page(link, res.text)
+        def _is_xss(page: Page):
+            searched = payload_regex_entire.search(page.source)
+            if searched is not None:
+                id = int(searched.group(1))
+                return id
+            return None
+            
 
     # def find_csrf_token(link: Link) -> Link:
     #     page = driver_pool.request(link.parent)
@@ -123,8 +133,8 @@ def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool
     #         params, data = link.params, {**link.data, link.csrf.name:token}
     #     return link.copy(params, data, token=token)
 
-    def visit_and_push(link: Link):
-        # logger.info(f"{link.method} {link.uri}")
+    def _visit_and_push(link: Link):
+        # logger.debug(f"{link.method} {link.uri}")
         # logger.debug(f"create thread: {link.url}")
         try:
             # if link.csrf_token:
@@ -135,17 +145,17 @@ def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool
             # page = _request(link)
             page = link.click(_request)
             # logger.debug(f"page.alerts: {page.alerts}")
-            xss_log_id = is_xss(page)
+            xss_log_id = _is_xss(page)
             if xss_log_id:
                 succeed.append(attack_log[xss_log_id])
-                logger.info(attack_log[xss_log_id].alert())
+                logger.debug(attack_log[xss_log_id].alert())
             # for alert in page.alerts:
             #     searched = regex.search(alert)
             #     if searched is not None:
             #         id = int(searched.group(1))
             #         # AttackLog("xss_reflected", id, link, attack_try[id])
             #         succeed.append(attack_log[id])
-            #         logger.info(attack_log[id].alert())
+            #         logger.debug(attack_log[id].alert())
             #         break
             # links = page.parse_links()
             # to_visit.extend(links)
@@ -156,6 +166,7 @@ def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool
     try:
         idx = 0
         for link in links:
+            logger.debug(f"link: {link} {links}")
             it = add_element_title(("GET", "POST"), (link.params.keys(), link.data.keys()))
             for method, name in it:
                 payload = payload_form.format(id=idx)
@@ -169,20 +180,22 @@ def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool
                 copy_link = link.copy(params=params, data=data)
                 attack_log[idx] = AttackLog("XSS", idx, copy_link, method, name, payload)
                 counter.inc()
-                threading.Thread(target=visit_and_push, args=(copy_link,), daemon=True).start()
+                threading.Thread(target=_visit_and_push, args=(copy_link,), daemon=True).start()
                 idx += 1
 
 
-        while not counter.iszero():
-            time.sleep(0.05)
+        # while not counter.iszero():
+        #     time.sleep(0.05)
+        wait_until(lambda:counter.iszero())
 
         #stored XSS 확인: 전체 다시 검사
         for link in links:
             counter.inc()
-            threading.Thread(target=visit_and_push, args=(link,), daemon=True).start()
+            threading.Thread(target=_visit_and_push, args=(link,), daemon=True).start()
 
-        while not counter.iszero():
-            time.sleep(0.05)
+        # while not counter.iszero():
+        #     time.sleep(0.05)
+        wait_until(lambda:counter.iszero())
 
     finally:
         if js_execution and own_driver_pool:

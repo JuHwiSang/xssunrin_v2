@@ -106,7 +106,7 @@ class Pool():
     #         self.request(link)
 
     def request(self, link: Link) -> Page:
-        logger.info(f"{link.method} {link.uri} {link.data}")
+        logger.debug(f"{link.method} {link.uri} {link.data}")
         with self.get_usable_driver() as driver:
             return driver.request(link)
         # driver.use()

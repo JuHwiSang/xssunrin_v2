@@ -1,4 +1,6 @@
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
+import time
+# import random
 
 
 def split_by_method(method, name, data):
@@ -14,3 +16,6 @@ def add_element_title(titles: Iterable[Any], elements: Iterable[Iterable[Any]]) 
     for title, element in zip(titles, elements):
         ret.extend(map(lambda x:(title, x), element))
     return ret
+
+def wait_until(func: Callable) -> None:
+    while not func(): time.sleep(0.05)

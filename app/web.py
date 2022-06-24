@@ -3,18 +3,33 @@ from typing import Callable, Optional
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit
 from bs4 import BeautifulSoup as bp
 
-from app.utils.helpers import add_element_title, split_by_method
+from app.utils.helpers import add_element_title, split_by_method, wait_until
 from xeger import xeger
+import time
 
 class CSRF:
     method: str
     name: str
     token: str
+    locked: list["Link"] = []
 
     def __init__(self, storage, name, token="") -> None:
         self.method = storage
         self.name = name
         self.token = token
+
+    @staticmethod
+    def lock(link: "Link") -> None:
+        CSRF.locked.append(link)
+
+    @staticmethod
+    def is_locked(link: "Link") -> bool:
+        return link in CSRF.locked
+    
+    @staticmethod
+    def unlock(link: "Link") -> None:
+        CSRF.locked.remove(link)
+
 
 class Link:
     url: str
@@ -43,11 +58,20 @@ class Link:
     def click(self, _request: Callable[["Link"], "Page"], bypass_csrf: bool = True) -> "Page":
         if bypass_csrf and self.csrf is not None:
             self.set_csrf_token(_request)
-        return _request(self)
+            page = _request(self)
+            CSRF.unlock(self)
+        else:
+            page = _request(self)
+        return page
 
     def set_csrf_token(self, _request: Callable[["Link"], "Page"]) -> None:
         if self.csrf is None:
             raise TypeError("Link.csrf have to be CSRF, not None")
+        # while self in CSRF.is_locked(self):
+        #     time.sleep(0.05)
+        wait_until(lambda:(not CSRF.is_locked(self)))
+        
+        CSRF.lock(self)
         page = self.parent.click(_request)
         soup = bp(page.source, 'html.parser')
         token = soup.select_one(f"input[name={self.csrf.name}]")['value']
