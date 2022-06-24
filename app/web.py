@@ -37,12 +37,14 @@ class Link:
     params: dict[str, str]
     data: dict[str, str]
     parent: "Link"
+    domain: str
     # csrf_token: tuple[str, str] | None
     csrf: Optional[CSRF]
     def __init__(self, url, method: str = "GET", parent: Optional["Link"] = None, params={}, data={}) -> None:
         # self.url = url
         splited = urlsplit(url)
         self.url = f"{splited[0]}://{splited[1]}{splited[2]}".lstrip("://")
+        self.domain = splited[1].split("@")[-1].split(":")[0]
         self.params = dict(parse_qsl(splited[3] + "&" + urlencode(params)))
         self.method = method.upper()
         self.parent = parent or self
@@ -108,11 +110,13 @@ class Page:
     source: str
     link: Link
     alerts: list[str]
+    cookies: dict[str, str]
 
-    def __init__(self, link, source, alerts=[]) -> None:
+    def __init__(self, link, source, alerts=[], cookies={}) -> None:
         self.source = source
         self.link = link
         self.alerts = alerts
+        self.cookies = cookies
     
     def parse_links(self) -> list[Link]:
         return [link

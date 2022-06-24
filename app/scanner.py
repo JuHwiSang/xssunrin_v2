@@ -70,7 +70,7 @@ def scan(target: str, js_execution: bool = True, driver_pool: Optional[Pool] = N
     try:
         while to_visit or not counter.iszero():
             if to_visit:
-                logger.debug(f"to_visit: {to_visit}")
+                # logger.debug(f"to_visit: {to_visit}")
                 link = to_visit.pop(0)
                 if link in visited: #링크를 to_visit에 입력할 때, samedomain이나 valuable인지 등 다 체크해서 입력해야하네.
                     continue

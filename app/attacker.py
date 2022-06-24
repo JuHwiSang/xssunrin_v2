@@ -1,7 +1,7 @@
-from typing import Optional
+from typing import Iterable, Optional
 
 import requests
-from app.utils.helpers import add_element_title, split_by_method, wait_until
+from app.utils.helpers import add_element_title, requests_cookie_to_normal, split_by_method, wait_until
 from app.web import Link, Page
 from app.logger import logger
 from app.utils.counter import Counter
@@ -80,6 +80,12 @@ def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool
     # visited = []
     # to_visit = [Link(target)]
     counter = Counter()
+    local_cookies: dict[str, str] = {}
+
+    # def _add_local_cookies(cookies: dict[str, str]) -> None:
+    #     for cookie in cookies:
+    #         if cookie not in local_cookies:
+    #             local_cookies.append(cookie)
 
     # logger.debug(f"target: {target}")
     if js_execution:
@@ -90,7 +96,10 @@ def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool
             own_driver_pool = False
 
         def _request(link: Link):
-            return driver_pool.request(link)
+            page = driver_pool.request(link, cookies=local_cookies)
+            # _add_local_cookies(page.cookies)
+            local_cookies.update(page.cookies)
+            return page
         def _is_xss(page: Page):
             for alert in page.alerts:
                 searched = payload_regex.search(alert)
@@ -102,8 +111,10 @@ def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool
     else:
         def _request(link: Link):
             logger.debug(f"{link.method} {link.uri} {link.data}")
-            res = requests.request(link.method, link.url, params=link.params, data=link.data)
-            return Page(link, res.text)
+            res = requests.request(link.method, link.url, params=link.params, data=link.data, cookies=local_cookies)
+            # _add_local_cookies(map(lambda x:{'name':x.name, 'value':x.value}, res.cookies))
+            local_cookies.update(requests_cookie_to_normal(res.cookies))
+            return Page(link, res.text, cookies=local_cookies)
         def _is_xss(page: Page):
             searched = payload_regex_entire.search(page.source)
             if searched is not None:
@@ -166,7 +177,7 @@ def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool
     try:
         idx = 0
         for link in links:
-            logger.debug(f"link: {link} {links}")
+            # logger.debug(f"link: {link} {links}")
             it = add_element_title(("GET", "POST"), (link.params.keys(), link.data.keys()))
             for method, name in it:
                 payload = payload_form.format(id=idx)

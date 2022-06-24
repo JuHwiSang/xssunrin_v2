@@ -1,4 +1,6 @@
 import os
+
+from app.utils.helpers import selenium_cookie_to_normal
 os.environ['WDM_LOG'] = '50'
 
 from selenium.webdriver import Chrome
@@ -55,7 +57,7 @@ class Driver(Chrome):
         self.implicitly_wait(5)
         # self.execute_script("alert('um?');") #test
         alerts = self.get_alerts()
-        page = Page(link, self.page_source, alerts)
+        page = Page(link, self.page_source, alerts, selenium_cookie_to_normal(self.get_cookies()))
         return page
 
     def get_alerts(self) -> list[str]:
@@ -69,6 +71,10 @@ class Driver(Chrome):
                 alert.accept()
             except NoAlertPresentException:
                 return alerts
+
+    def add_cookies(self, cookies: dict[str, str]) -> None:
+        for key, value in cookies.items():
+            self.add_cookie({'name' : key, 'value' : value})
 
     # def quit(self) -> None:
     #     self.driver.quit()
@@ -105,9 +111,10 @@ class Pool():
     #     for link in links:
     #         self.request(link)
 
-    def request(self, link: Link) -> Page:
+    def request(self, link: Link, cookies: dict[str, str] = {}) -> Page:
         logger.debug(f"{link.method} {link.uri} {link.data}")
         with self.get_usable_driver() as driver:
+            driver.add_cookies(cookies)
             return driver.request(link)
         # driver.use()
         # def close_after_use():
