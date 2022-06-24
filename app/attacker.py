@@ -17,7 +17,7 @@ import time
 #     "<script>alert(10101{id}10101)</script>"
 # ]
 # payload_form = "<script>alert(10101{id}10101)</script>"
-payload_form = "<script>alert(xssunrin{id})</script>"
+payload_form = "<script>alert('xssunrin{id}')</script>"
 # payloadlist = get_payloadlist("./payloadlist.txt")
 # payloadform = "10101{idx}10101"
 # regex = re.compile("10101([0-9]+)10101")

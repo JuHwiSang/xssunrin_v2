@@ -4,6 +4,7 @@ from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit
 from bs4 import BeautifulSoup as bp
 
 from app.utils.helpers import add_element_title, split_by_method
+from xeger import xeger
 
 class CSRF:
     method: str
@@ -34,9 +35,9 @@ class Link:
         self.csrf = check_csrf(self.params, self.data)
 
 
-    def copy(self, params: dict[str, str] = {}, data: dict[str, str] = {}, token: str = "") -> "Link":
+    def copy(self, params: dict[str, str] = {}, data: dict[str, str] = {}) -> "Link":
         new_link = Link(self.url, self.method, self.parent, {**self.params, **params}, {**self.data, **data})
-        new_link.csrf.token = token
+        # new_link.csrf.token = token
         return new_link
 
     def click(self, _request: Callable[["Link"], "Page"], bypass_csrf: bool = True) -> "Page":
@@ -45,6 +46,8 @@ class Link:
         return _request(self)
 
     def set_csrf_token(self, _request: Callable[["Link"], "Page"]) -> None:
+        if self.csrf is None:
+            raise TypeError("Link.csrf have to be CSRF, not None")
         page = self.parent.click(_request)
         soup = bp(page.source, 'html.parser')
         token = soup.select_one(f"input[name={self.csrf.name}]")['value']
@@ -148,9 +151,10 @@ def parse_links(source: str, page_link: Link) -> list[Link]:
             name = tag_input.get('name', None)
             type = tag_input.get('type', None)
             value = tag_input.get('value', None)
+            pattern = tag_input.get('pattern', None)
             if name is None:
                 continue
-            inputs[name] = value or dummy_data[type]
+            inputs[name] = value or (xeger(pattern) if pattern else dummy_data[type])
 
         if method == "GET":
             # link = Link(f"{url}?{attach_qs(inputs)}")
@@ -169,7 +173,7 @@ def is_valid_url(url: str) -> bool:
 def is_samedomain(url1: str, url2: str) -> bool:
     return urlsplit(url1)[:2] == urlsplit(url2)[:2]
 
-def check_csrf(params: dict[str, str], data: dict[str, str]) -> tuple[str, str] | None:
+def check_csrf(params: dict[str, str], data: dict[str, str]) -> CSRF | None:
     for storage, key in add_element_title(("GET", "POST"), (params.keys(), data.keys())):
         if "csrf" in key:
             return CSRF(storage, key)

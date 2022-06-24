@@ -63,7 +63,7 @@ class Driver(Chrome):
         while 1:
             try:
                 alert = self.switch_to.alert
-                self.switch_to.active_element
+                # self.switch_to.active_element
                 # self.switch_to.
                 alerts.append(alert.text)
                 alert.accept()
