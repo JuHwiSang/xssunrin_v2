@@ -59,7 +59,8 @@ def scan(target: str, js_execution: bool = True, driver_pool: Optional[Pool] = N
 
     def _visit_and_push(link: Link):
         try:
-            page = _request(link)
+            # page = _request(link)
+            page = link.click(_request)
             links = page.parse_links()
             to_visit.extend(links)
         finally:

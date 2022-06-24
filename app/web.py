@@ -1,15 +1,17 @@
 from turtle import st
-from typing import Optional
+from typing import Callable, Optional
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit
 from bs4 import BeautifulSoup as bp
 
+from app.utils.helpers import add_element_title, split_by_method
+
 class CSRF:
-    storage: str
+    method: str
     name: str
     token: str
 
     def __init__(self, storage, name, token="") -> None:
-        self.storage = storage
+        self.method = storage
         self.name = name
         self.token = token
 
@@ -36,6 +38,25 @@ class Link:
         new_link = Link(self.url, self.method, self.parent, {**self.params, **params}, {**self.data, **data})
         new_link.csrf.token = token
         return new_link
+
+    def click(self, _request: Callable[["Link"], "Page"], bypass_csrf: bool = True) -> "Page":
+        if bypass_csrf and self.csrf is not None:
+            self.set_csrf_token(_request)
+        return _request(self)
+
+    def set_csrf_token(self, _request: Callable[["Link"], "Page"]) -> None:
+        page = self.parent.click(_request)
+        soup = bp(page.source, 'html.parser')
+        token = soup.select_one(f"input[name={self.csrf.name}]")['value']
+        # link.csrf.token = token
+        # if self.csrf.storage == "GET":
+        #     params, data = {**self.params, self.csrf.name:token}, self.data
+        # elif self.csrf.storage == "POST":
+        #     params, data = self.params, {**self.data, self.csrf.name:token}
+        params, data = split_by_method(self.csrf.method, self.csrf.name, token)
+        self.params.update(params)
+        self.data.update(data)
+        self.csrf.token = token
 
     @property
     def uri(self) -> str:
@@ -149,7 +170,7 @@ def is_samedomain(url1: str, url2: str) -> bool:
     return urlsplit(url1)[:2] == urlsplit(url2)[:2]
 
 def check_csrf(params: dict[str, str], data: dict[str, str]) -> tuple[str, str] | None:
-    for storage, key in [*map(lambda x:("GET", x), params.keys()), *map(lambda x:("POST", x), data.keys())]:
+    for storage, key in add_element_title(("GET", "POST"), (params.keys(), data.keys())):
         if "csrf" in key:
             return CSRF(storage, key)
     else:

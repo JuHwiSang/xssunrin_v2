@@ -1,6 +1,7 @@
 from typing import Optional
 
 import requests
+from app.utils.helpers import add_element_title, split_by_method
 from app.web import Link, Page
 from app.logger import logger
 from app.utils.counter import Counter
@@ -111,16 +112,16 @@ def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool
     #         params, data = link.params, {**link.data, link.csrf_token[1]:token}
     #     return link.copy(params, data)
 
-    def _set_csrf_token(link: Link):
-        page = _request(link)
-        soup = bp(page.source, 'html.parser')
-        token = soup.select_one(f"input[name={link.csrf.name}]")['value']
-        # link.csrf.token = token
-        if link.csrf.storage == "GET":
-            params, data = {**link.params, link.csrf.name:token}, link.data
-        elif link.csrf.storage == "POST":
-            params, data = link.params, {**link.data, link.csrf.name:token}
-        return link.copy(params, data, token=token)
+    # def _set_csrf_token(link: Link):
+    #     page = _request(link)
+    #     soup = bp(page.source, 'html.parser')
+    #     token = soup.select_one(f"input[name={link.csrf.name}]")['value']
+    #     # link.csrf.token = token
+    #     if link.csrf.method == "GET":
+    #         params, data = {**link.params, link.csrf.name:token}, link.data
+    #     elif link.csrf.method == "POST":
+    #         params, data = link.params, {**link.data, link.csrf.name:token}
+    #     return link.copy(params, data, token=token)
 
     def visit_and_push(link: Link):
         # logger.info(f"{link.method} {link.uri}")
@@ -128,10 +129,11 @@ def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool
         try:
             # if link.csrf_token:
             #     link = find_csrf_token(link)
-            link = _set_csrf_token(link)
+            # link.set_csrf_token(_request)
             # link = link.set_csrf_token()
             # page = driver_pool.request(link)
-            page = _request(link)
+            # page = _request(link)
+            page = link.click(_request)
             # logger.debug(f"page.alerts: {page.alerts}")
             xss_log_id = is_xss(page)
             if xss_log_id:
@@ -154,15 +156,17 @@ def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool
     try:
         idx = 0
         for link in links:
-            it = tuple(map(lambda x: ('GET', x), link.params)) + tuple(map(lambda x: ('POST', x), link.data))
+            it = add_element_title(("GET", "POST"), (link.params.keys(), link.data.keys()))
             payload = payload_form.format(id=idx)
             for method, name in it:
-                if method == "GET":
-                    copy_link = link.copy(params={name: payload})
-                elif method == "POST":
-                    copy_link = link.copy(data={name: payload})
-                else:
-                    raise ValueError(f"Unknown method: {method}")
+                params, data = split_by_method(method, name, payload)
+                # if method == "GET":
+                #     copy_link = link.copy(params={name: payload})
+                # elif method == "POST":
+                #     copy_link = link.copy(data={name: payload})
+                # else:
+                #     raise ValueError(f"Unknown method: {method}")
+                copy_link = link.copy(params=params, data=data)
                 attack_log[idx] = AttackLog("XSS", idx, copy_link, method, name, payload)
                 counter.inc()
                 threading.Thread(target=visit_and_push, args=(copy_link,), daemon=True).start()
