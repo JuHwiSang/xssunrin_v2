@@ -2,7 +2,7 @@ from app.scanner import scan
 from app.attacker import xss
 from app.multidriver import Pool
 
-target = "https://0a22003503855d6dc01953740020006f.web-security-academy.net/"
+target = "https://0ab10010033cd79bc00553c1007a00ea.web-security-academy.net/"
 # target = "https://xss-game.appspot.com/level2/frame"
 
 pool = Pool(3)
