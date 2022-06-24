@@ -24,29 +24,46 @@ def scan(target: str, js_execution: bool = True, driver_pool: Optional[Pool] = N
         else:
             own_driver_pool = False
 
-        def visit_and_push(link: Link):
-            # logger.debug(f"{link.method} {link.uri}")
-            # logger.debug(f"create thread: {link.url}")
-            try:
-                page = driver_pool.request(link)
-                links = page.parse_links()
-                to_visit.extend(links)
-            finally:
-                counter.dec()
-            # logger.debug(f"close thread: {link.url}")
+        def _request(link: Link):
+            return driver_pool.request(link)
+
     else:
-        def visit_and_push(link: Link):
-            # logger.debug(f"{link.method} {link.uri}")
-            # logger.debug(f"create thread: {link.url}")
-            try:
-                logger.info(f"{link.method} {link.uri} {link.data}")
-                res = requests.request(link.method, link.url, params=link.params, data=link.data)
-                page = Page(link, res.text)
-                links = page.parse_links()
-                to_visit.extend(links)
-            finally:
-                counter.dec()
-            # logger.debug(f"close thread: {link.url}")
+        def _request(link: Link):
+            logger.info(f"{link.method} {link.uri} {link.data}")
+            res = requests.request(link.method, link.url, params=link.params, data=link.data)
+            return Page(link, res.text)
+
+    #     def visit_and_push(link: Link):
+    #         # logger.debug(f"{link.method} {link.uri}")
+    #         # logger.debug(f"create thread: {link.url}")
+    #         try:
+    #             page = driver_pool.request(link)
+    #             links = page.parse_links()
+    #             to_visit.extend(links)
+    #         finally:
+    #             counter.dec()
+    #         # logger.debug(f"close thread: {link.url}")
+    # else:
+    #     def visit_and_push(link: Link):
+    #         # logger.debug(f"{link.method} {link.uri}")
+    #         # logger.debug(f"create thread: {link.url}")
+    #         try:
+    #             logger.info(f"{link.method} {link.uri} {link.data}")
+    #             res = requests.request(link.method, link.url, params=link.params, data=link.data)
+    #             page = Page(link, res.text)
+    #             links = page.parse_links()
+    #             to_visit.extend(links)
+    #         finally:
+    #             counter.dec()
+    #         # logger.debug(f"close thread: {link.url}")
+
+    def _visit_and_push(link: Link):
+        try:
+            page = _request(link)
+            links = page.parse_links()
+            to_visit.extend(links)
+        finally:
+            counter.dec()
 
     
     try:
@@ -57,7 +74,7 @@ def scan(target: str, js_execution: bool = True, driver_pool: Optional[Pool] = N
                     continue
                 counter.inc()
                 visited.append(link)
-                threading.Thread(target=visit_and_push, args=(link,), daemon=True).start()
+                threading.Thread(target=_visit_and_push, args=(link,), daemon=True).start()
             else:
                 time.sleep(0.05)
     finally:
