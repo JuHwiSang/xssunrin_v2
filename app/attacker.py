@@ -157,8 +157,8 @@ def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool
         idx = 0
         for link in links:
             it = add_element_title(("GET", "POST"), (link.params.keys(), link.data.keys()))
-            payload = payload_form.format(id=idx)
             for method, name in it:
+                payload = payload_form.format(id=idx)
                 params, data = split_by_method(method, name, payload)
                 # if method == "GET":
                 #     copy_link = link.copy(params={name: payload})
@@ -171,6 +171,10 @@ def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool
                 counter.inc()
                 threading.Thread(target=visit_and_push, args=(copy_link,), daemon=True).start()
                 idx += 1
+
+
+        while not counter.iszero():
+            time.sleep(0.05)
 
         #stored XSS 확인: 전체 다시 검사
         for link in links:
