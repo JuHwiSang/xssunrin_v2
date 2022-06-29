@@ -8,13 +8,13 @@ from xeger import xeger
 import time
 
 class CSRF:
-    method: str
+    storage: str
     name: str
     token: str
     locked: list["Link"] = []
 
     def __init__(self, storage, name, token="") -> None:
-        self.method = storage
+        self.storage = storage
         self.name = name
         self.token = token
 
@@ -82,7 +82,7 @@ class Link:
         #     params, data = {**self.params, self.csrf.name:token}, self.data
         # elif self.csrf.storage == "POST":
         #     params, data = self.params, {**self.data, self.csrf.name:token}
-        params, data = split_by_method(self.csrf.method, self.csrf.name, token)
+        params, data = split_by_method(self.csrf.storage, {self.csrf.name: token})
         self.params.update(params)
         self.data.update(data)
         self.csrf.token = token
@@ -90,6 +90,11 @@ class Link:
     @property
     def uri(self) -> str:
         return f"{self.url}?{urlencode(self.params)}".rstrip("?")
+
+    @property
+    def url_without_path(self) -> str:
+        splited = urlsplit(self.url)
+        return f"{splited[0]}://{splited[1]}".lstrip("://")
     
     def __eq__(self, __o: object) -> bool:
         if isinstance(__o, Link):
@@ -98,7 +103,7 @@ class Link:
             same_params = set(self.params.keys()) == set(__o.params.keys()) and set(self.data.keys()) == set(__o.data.keys())
             return same_url and same_method and same_params
         else:
-            return self.url == str(__o)
+            return NotImplemented
 
     def __str__(self) -> str:
         return f"Link({self.url!r}, {self.method!r}, {self.params!r}, {self.data!r})"

@@ -9,7 +9,7 @@ def get_args():
     parser.add_argument("target", help="Target website")
     parser.add_argument("--driver-pool-size", type=int, help="Set Driver Pool size.", default=3)
     parser.add_argument("--no-js", const=True, action="store_const", help="Use 'requests' instead 'selenium'.", default=False)
-    # parser.add_argument("--xss-cheat-sheet", help="Set a cheat sheet file for xss.")
+    parser.add_argument("--xss-cheat-sheet", help="Set a cheat sheet file for xss.", default="./src/default_xss_cheat_sheet.txt")
     return parser.parse_args()
 
 
@@ -18,6 +18,7 @@ def main():
     target = args.target
     driver_pool_size = args.driver_pool_size
     use_js_execution = not args.no_js
+    xss_cheat_sheet = args.xss_cheat_sheet
 
     if use_js_execution:
         pool = Pool(driver_pool_size)
@@ -27,7 +28,7 @@ def main():
     try:
         links = scan(target, driver_pool=pool, js_execution=use_js_execution)
         print("scan result:", links)
-        succeed = xss(links, driver_pool=pool, js_execution=use_js_execution)
+        succeed = xss(links, driver_pool=pool, js_execution=use_js_execution, cheat_sheet_path=xss_cheat_sheet)
         print("XSS result:", succeed)
     finally:
         if use_js_execution:

@@ -3,11 +3,11 @@ import time
 # import random
 
 
-def split_by_method(method, name, data):
+def split_by_method(method, data, other={}):
     if method == "GET":
-        return {name: data}, {}
+        return data, other
     elif method == "POST":
-        return {}, {name: data}
+        return other, data
     else:
         ValueError(f"Unknown method: {method}")
 

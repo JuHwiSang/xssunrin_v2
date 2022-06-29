@@ -38,12 +38,14 @@ def create_send_script(method: str, url: str, data: dict[str, str]) -> str:
 class Driver(Chrome):
     # driver: Chrome
     occupied: bool
+    havnt_requested: bool
 
     # def __init__(self) -> None:
     #     self.driver = Chrome(executable_path=chrome_path, chrome_options=chrome_options)
     #     self.occupied = False
     def __init__(self, *args, **kwargs):
         self.occupied = False
+        self.havnt_requested = True
         default_kwargs = {"executable_path" : chrome_path, "chrome_options" : chrome_options}
         default_kwargs.update(kwargs)
         super().__init__(*args, **default_kwargs)
@@ -55,6 +57,7 @@ class Driver(Chrome):
             self.get("data:")
             self.execute_script(create_send_script(link.method, link.uri, link.data))
         self.implicitly_wait(5)
+        # if link.method == "POST": logger.debug(f"post link: {link.uri}, currernt_path: {self.current_url}")
         # self.execute_script("alert('um?');") #test
         alerts = self.get_alerts()
         page = Page(link, self.page_source, alerts, selenium_cookie_to_normal(self.get_cookies()))
@@ -74,7 +77,20 @@ class Driver(Chrome):
 
     def add_cookies(self, cookies: dict[str, str]) -> None:
         for key, value in cookies.items():
-            self.add_cookie({'name' : key, 'value' : value})
+            try:
+                self.add_cookie({'name' : key, 'value' : value})
+            except:
+                print("url:", self.current_url)
+                print("driver cookies:", self.get_cookies())
+                print("cookies:", cookies)
+                print("current_cookie:", key, value)
+                raise
+
+    def init_first_request(self, link: Link) -> None:
+        if self.havnt_requested:
+            self.get(link.url_without_path)
+            self.implicitly_wait(5)
+            self.havnt_requested = False
 
     # def quit(self) -> None:
     #     self.driver.quit()
@@ -114,6 +130,7 @@ class Pool():
     def request(self, link: Link, cookies: dict[str, str] = {}) -> Page:
         logger.debug(f"{link.method} {link.uri} {link.data}")
         with self.get_usable_driver() as driver:
+            driver.init_first_request(link)
             driver.add_cookies(cookies)
             return driver.request(link)
         # driver.use()
