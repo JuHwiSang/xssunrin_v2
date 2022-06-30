@@ -102,7 +102,7 @@ def find_payload_id(regex: re.Pattern, text: str) -> int | None:
         id = int(searched.group(1))
         return id
 
-def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool] = None, driver_pool_size: int = 3, cheat_sheet_path: Optional[str] = None) -> list[AttackLog]:
+def xss(links: list[Link], usejs: bool = True, driver_pool: Optional[Pool] = None, driver_pool_size: int = 3, cheat_sheet_path: Optional[str] = None) -> list[AttackLog]:
 
     if cheat_sheet_path is None:
         raise ValueError("No cheat sheet selected.")
@@ -123,7 +123,7 @@ def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool
     # logger.debug(f"target: {target}")
 
     payload_forms, payload_regexs = read_cheat_sheet(cheat_sheet_path)
-    if js_execution:
+    if usejs:
         if driver_pool is None:
             own_driver_pool = True
             driver_pool = Pool(driver_pool_size)
@@ -256,7 +256,7 @@ def xss(links: list[Link], js_execution: bool = True, driver_pool: Optional[Pool
         wait_until(lambda:counter.iszero())
 
     finally:
-        if js_execution and own_driver_pool:
+        if usejs and own_driver_pool:
             driver_pool.quit()
 
     logger.debug("XSS end")

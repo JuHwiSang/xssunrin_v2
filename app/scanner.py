@@ -10,14 +10,14 @@ import time
 
 
 
-def scan(target: str, js_execution: bool = True, driver_pool: Optional[Pool] = None, driver_pool_size: int = 3):
+def scan(target: str, usejs: bool = True, driver_pool: Optional[Pool] = None, driver_pool_size: int = 3):
     logger.debug("----------------- scanner start -----------------")
     visited = []
     to_visit = [Link(target)]
     counter = Counter()
     logger.debug(f"target: {target}")
 
-    if js_execution:
+    if usejs:
         if driver_pool is None:
             own_driver_pool = True
             driver_pool = Pool(driver_pool_size)
@@ -80,7 +80,7 @@ def scan(target: str, js_execution: bool = True, driver_pool: Optional[Pool] = N
             else:
                 time.sleep(0.05)
     finally:
-        if js_execution and own_driver_pool:
+        if usejs and own_driver_pool:
             driver_pool.quit()
 
     logger.debug("scanner end")

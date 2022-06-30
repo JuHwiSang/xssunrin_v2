@@ -11,9 +11,9 @@ Blind XSS? Nope. It can't.
 
 # Usage
 ```python3 run.py TARGET_URL```
-- ```--driver-pool-size``` Set selenium driver pool size.
+- ```--driver-pool-size SIZE``` Set selenium driver pool size.
 - ```--no-js``` Use requests module instead selenium.
-- ```--xss-cheat-sheet``` Set a cheat sheet file for xss.
+- ```--xss-cheat-sheet PATH``` Set a cheat sheet file for xss.
 
 
 # Function
