@@ -38,14 +38,14 @@ def create_send_script(method: str, url: str, data: dict[str, str]) -> str:
 class Driver(Chrome):
     # driver: Chrome
     occupied: bool
-    havnt_requested: bool
+    # havnt_requested: bool
 
     # def __init__(self) -> None:
     #     self.driver = Chrome(executable_path=chrome_path, chrome_options=chrome_options)
     #     self.occupied = False
     def __init__(self, *args, **kwargs):
         self.occupied = False
-        self.havnt_requested = True
+        # self.havnt_requested = True
         default_kwargs = {"executable_path" : chrome_path, "chrome_options" : chrome_options}
         default_kwargs.update(kwargs)
         super().__init__(*args, **default_kwargs)
@@ -87,10 +87,11 @@ class Driver(Chrome):
                 raise
 
     def init_first_request(self, link: Link) -> None:
-        if self.havnt_requested:
-            self.get(link.url_without_path)
-            self.implicitly_wait(5)
-            self.havnt_requested = False
+        # if self.havnt_requested:
+        self.get(link.url_without_path)
+        self.implicitly_wait(5)
+        # self.havnt_requested = False
+        self.init_first_request = lambda *a, **k:...
 
     # def quit(self) -> None:
     #     self.driver.quit()

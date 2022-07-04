@@ -102,7 +102,7 @@ def find_payload_id(regex: re.Pattern, text: str) -> int | None:
         id = int(searched.group(1))
         return id
 
-def xss(links: list[Link], usejs: bool = True, driver_pool: Optional[Pool] = None, driver_pool_size: int = 3, cheat_sheet_path: Optional[str] = None) -> list[AttackLog]:
+def xss(links: list[Link], usejs: bool = True, driver_pool: Optional[Pool] = None, driver_pool_size: int = 3, cheat_sheet_path: Optional[str] = None, cookies: dict[str, str] = {}) -> list[AttackLog]:
 
     if cheat_sheet_path is None:
         raise ValueError("No cheat sheet selected.")
@@ -113,7 +113,10 @@ def xss(links: list[Link], usejs: bool = True, driver_pool: Optional[Pool] = Non
     # visited = []
     # to_visit = [Link(target)]
     counter = Counter()
-    local_cookies: dict[str, str] = {}
+    local_cookies: dict[str, str] = cookies
+
+    # logger.debug(f"target: {links}")
+    logger.debug(f"initial cookies: {local_cookies}")
 
     # def _add_local_cookies(cookies: dict[str, str]) -> None:
     #     for cookie in cookies:
@@ -123,6 +126,7 @@ def xss(links: list[Link], usejs: bool = True, driver_pool: Optional[Pool] = Non
     # logger.debug(f"target: {target}")
 
     payload_forms, payload_regexs = read_cheat_sheet(cheat_sheet_path)
+    print(payload_forms, payload_regexs)
     if usejs:
         if driver_pool is None:
             own_driver_pool = True
@@ -142,7 +146,7 @@ def xss(links: list[Link], usejs: bool = True, driver_pool: Optional[Pool] = Non
                 #     id = int(searched.group(1))
                 #     return id
                 id = find_payload_id(alert_payload_regex, alert)
-                if id:
+                if id is not None:
                     return id
             return None
 
@@ -160,7 +164,7 @@ def xss(links: list[Link], usejs: bool = True, driver_pool: Optional[Pool] = Non
             #     return id
             for regex in payload_regexs:
                 id = find_payload_id(regex, page.source)
-                if id:
+                if id is not None:
                     return id
             return None
             
@@ -199,9 +203,9 @@ def xss(links: list[Link], usejs: bool = True, driver_pool: Optional[Pool] = Non
             page = link.click(_request)
             # logger.debug(f"page.alerts: {page.alerts}")
             xss_log_id = _is_xss(page)
-            if xss_log_id:
+            if xss_log_id is not None:
                 if xss_log_id not in attack_log:
-                    raise DoubleAttackError(f"This attacker already attacked this website, and succeed.(log id: {xss_log_id}")
+                    raise DoubleAttackError(f"This attacker already attacked this website, and succeed.(payload id: {xss_log_id}")
                 elif attack_log[xss_log_id] not in succeed:
                     succeed.append(attack_log[xss_log_id])
                     logger.debug(attack_log[xss_log_id].alert())

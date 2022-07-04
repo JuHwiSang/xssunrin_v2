@@ -67,8 +67,8 @@ class Link:
         return page
 
     def set_csrf_token(self, _request: Callable[["Link"], "Page"]) -> None:
-        if self.csrf is None:
-            raise TypeError("Link.csrf have to be CSRF, not None")
+        if not isinstance(self.csrf, CSRF):
+            raise TypeError(f"Link.csrf have to be CSRF, not {self.csrf!r}")
         # while self in CSRF.is_locked(self):
         #     time.sleep(0.05)
         wait_until(lambda:(not CSRF.is_locked(self)))

@@ -1,3 +1,4 @@
+import json
 from app.scanner import scan
 from app.attacker import xss
 from app.multidriver import Pool
@@ -10,6 +11,7 @@ def get_args():
     parser.add_argument("--driver-pool-size", type=int, help="Set selenium driver pool size.", default=3)
     parser.add_argument("--no-js", const=True, action="store_const", help="Use requests module instead selenium.", default=False)
     parser.add_argument("--xss-cheat-sheet", help="Set a cheat sheet file for xss.", default="./src/default_xss_cheat_sheet.txt")
+    parser.add_argument("--cookies", help="Set initial cookies by json.", type=json.loads, default={})
     return parser.parse_args()
 
 
@@ -19,6 +21,7 @@ def main():
     driver_pool_size = args.driver_pool_size
     usejs = not args.no_js
     xss_cheat_sheet = args.xss_cheat_sheet
+    cookies = args.cookies
 
     if usejs:
         pool = Pool(driver_pool_size)
@@ -26,9 +29,9 @@ def main():
         pool = None
 
     try:
-        links = scan(target, driver_pool=pool, usejs=usejs)
+        links = scan(target, driver_pool=pool, usejs=usejs, cookies=cookies)
         print("scan result:", links)
-        succeed = xss(links, driver_pool=pool, usejs=usejs, cheat_sheet_path=xss_cheat_sheet)
+        succeed = xss(links, driver_pool=pool, usejs=usejs, cheat_sheet_path=xss_cheat_sheet, cookies=cookies)
         print("XSS result:", succeed)
     finally:
         if usejs:

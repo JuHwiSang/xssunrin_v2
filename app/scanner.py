@@ -3,6 +3,7 @@ from typing import Optional
 import requests
 from app.utils.counter import Counter
 from app.multidriver import Pool
+from app.utils.helpers import requests_cookie_to_normal
 from app.web import Link, Page
 from app.logger import logger
 import threading
@@ -10,12 +11,15 @@ import time
 
 
 
-def scan(target: str, usejs: bool = True, driver_pool: Optional[Pool] = None, driver_pool_size: int = 3):
+def scan(target: str, usejs: bool = True, driver_pool: Optional[Pool] = None, driver_pool_size: int = 3, cookies: dict[str, str] = {}):
     logger.debug("----------------- scanner start -----------------")
     visited = []
     to_visit = [Link(target)]
     counter = Counter()
+    local_cookies: dict[str, str] = cookies.copy()
+
     logger.debug(f"target: {target}")
+    logger.debug(f"initial cookies: {local_cookies}")
 
     if usejs:
         if driver_pool is None:
@@ -25,13 +29,16 @@ def scan(target: str, usejs: bool = True, driver_pool: Optional[Pool] = None, dr
             own_driver_pool = False
 
         def _request(link: Link):
-            return driver_pool.request(link)
+            page = driver_pool.request(link, cookies=local_cookies)
+            local_cookies.update(page.cookies)
+            return page
 
     else:
         def _request(link: Link):
             logger.debug(f"{link.method} {link.uri} {link.data}")
-            res = requests.request(link.method, link.url, params=link.params, data=link.data)
-            return Page(link, res.text)
+            res = requests.request(link.method, link.url, params=link.params, data=link.data, cookies=local_cookies)
+            local_cookies.update(requests_cookie_to_normal(res.cookies))
+            return Page(link, res.text, cookies=res.cookies)
 
     #     def visit_and_push(link: Link):
     #         # logger.debug(f"{link.method} {link.uri}")
