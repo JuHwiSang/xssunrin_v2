@@ -14,6 +14,8 @@ Blind XSS? Nope. It can't.
 - ```--driver-pool-size SIZE``` Set selenium driver pool size.
 - ```--no-js``` Use requests module instead selenium.
 - ```--xss-cheat-sheet PATH``` Set a cheat sheet file for xss.
+- ```--cookies JSON``` Set initial cookies by json.
+- ```--driver-show``` Show selenium window.
 
 
 # Function
