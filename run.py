@@ -9,7 +9,7 @@ def get_args():
     parser = argparse.ArgumentParser(description="To scan, and xss attack.")
     parser.add_argument("target", help="Target website")
     parser.add_argument("--driver-pool-size", type=int, help="Set selenium driver pool size.", default=3)
-    parser.add_argument("--no-js", const=True, action="store_const", help="Use requests module instead selenium.", default=False)
+    parser.add_argument("--no-js", action="store_true", help="Use requests module instead selenium.", default=False)
     parser.add_argument("--xss-cheat-sheet", help="Set a cheat sheet file for xss.", default="./src/default_xss_cheat_sheet.txt")
     parser.add_argument("--cookies", help="Set initial cookies by json.", type=json.loads, default={})
     parser.add_argument("--driver-show", help="Show selenium window.", action="store_true", default=False)
