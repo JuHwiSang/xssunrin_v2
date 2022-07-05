@@ -1,7 +1,7 @@
 import json
 from app.scanner import scan
 from app.attacker import xss
-from app.multidriver import Pool
+from app.multidriver import Pool, chrome_options_no_headless
 import argparse
 
 
@@ -12,6 +12,7 @@ def get_args():
     parser.add_argument("--no-js", const=True, action="store_const", help="Use requests module instead selenium.", default=False)
     parser.add_argument("--xss-cheat-sheet", help="Set a cheat sheet file for xss.", default="./src/default_xss_cheat_sheet.txt")
     parser.add_argument("--cookies", help="Set initial cookies by json.", type=json.loads, default={})
+    parser.add_argument("--driver-show", help="Show selenium window.", action="store_true", default=False)
     return parser.parse_args()
 
 
@@ -22,9 +23,15 @@ def main():
     usejs = not args.no_js
     xss_cheat_sheet = args.xss_cheat_sheet
     cookies = args.cookies
+    driver_show = args.driver_show
+
+    if driver_show:
+        kwargs = {"driver_options": chrome_options_no_headless}
+    else:
+        kwargs = {}
 
     if usejs:
-        pool = Pool(driver_pool_size)
+        pool = Pool(driver_pool_size, **kwargs)
     else:
         pool = None
 
