@@ -72,19 +72,6 @@ class AttackLog:
         else:
             return NotImplemented
 
-# class AttackResult:
-#     type: str
-#     id: int
-#     link: Link
-#     param_name: str
-#     payload: str
-#     def __init__(self, type, id, link, param_name, payload) -> None:
-#         self.type = type
-#         self.id = id
-#         self.link = link
-#         self.param_name = param_name
-#         self.payload = payload
-
 
 def read_cheat_sheet(cheat_sheet_path: str):
     with open(cheat_sheet_path, "r") as f:
@@ -101,6 +88,7 @@ def find_payload_id(regex: re.Pattern, text: str) -> int | None:
     if searched is not None:
         id = int(searched.group(1))
         return id
+    return None
 
 def xss(links: list[Link], usejs: bool = True, driver_pool: Optional[Pool] = None, driver_pool_size: int = 3, cheat_sheet_path: Optional[str] = None, cookies: dict[str, str] = {}) -> list[AttackLog]:
 
@@ -258,7 +246,7 @@ def xss(links: list[Link], usejs: bool = True, driver_pool: Optional[Pool] = Non
             thread.join()
 
         #stored XSS 확인: 전체 다시 검사
-        threads: list[threading.Thread] = []
+        threads = []
         for link in links:
             # counter.inc()
             thread = threading.Thread(target=_visit_and_push, args=(link,), daemon=True)

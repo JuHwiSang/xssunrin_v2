@@ -79,13 +79,14 @@ def scan(target: str, usejs: bool = True, driver_pool: Optional[Pool] = None, dr
         # i = 0
         # for thread in threads:
         while 1:
-            if len(threads) <= 0:
+            if not threads:
                 return False
-            thread = threads[0]
-            if thread.is_alive():
-                return True
             else:
-                del threads[0]
+                thread = threads[0]
+                if thread.is_alive():
+                    return True
+                else:
+                    del threads[0]
 
 
     
