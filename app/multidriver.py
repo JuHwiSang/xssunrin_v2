@@ -118,10 +118,10 @@ class Pool():
     pool: list[Driver]
     # threads: dict[Link, ThreadingResult]
 
-    def __init__(self, size: int = 3, driver_options: Options = Options()) -> None:
+    def __init__(self, size: int = 3, chrome_options: Options = chrome_options) -> None:
         self.size = size
         logger.debug(f"Driver pool({size}) is loading...")
-        self.pool = [Driver(chrome_options=driver_options) for _ in range(size)]
+        self.pool = [Driver(chrome_options=chrome_options) for _ in range(size)]
         logger.debug("Driver pool loading succeed.")
 
     # def requests(self, links: list[Link]) -> None:

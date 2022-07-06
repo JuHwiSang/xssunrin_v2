@@ -13,7 +13,7 @@ import re
 import time
 
 
-DEFAULT_CHEAT_SHEET_PATH = "./src/default_cheat_sheet.txt"
+# DEFAULT_CHEAT_SHEET_PATH = "./src/default_cheat_sheet.txt"
 
 # payload_form = [
 #     "<script>alert(10101{id}10101)</script>"
@@ -112,7 +112,7 @@ def xss(links: list[Link], usejs: bool = True, driver_pool: Optional[Pool] = Non
     attack_log: dict[int, AttackLog] = {}
     # visited = []
     # to_visit = [Link(target)]
-    counter = Counter()
+    # counter = Counter()
     local_cookies: dict[str, str] = cookies
 
     # logger.debug(f"target: {links}")
@@ -220,11 +220,13 @@ def xss(links: list[Link], usejs: bool = True, driver_pool: Optional[Pool] = Non
             # links = page.parse_links()
             # to_visit.extend(links)
         finally:
-            counter.dec()
+            ...
+        #     counter.dec()
         # logger.debug(f"close thread: {link.url}")
     
     try:
         idx = 0
+        threads: list[threading.Thread] = []
         for link in links:
             # logger.debug(f"link: {link} {links}")
             it = add_element_title(("GET", "POST"), (link.params.keys(), link.data.keys()))
@@ -242,22 +244,32 @@ def xss(links: list[Link], usejs: bool = True, driver_pool: Optional[Pool] = Non
                     copy_link = link.copy(params=params, data=data)
                     attack_log[idx] = AttackLog("XSS", idx, copy_link, method, name, payload)
                     idx += 1
-                    counter.inc()
-                    threading.Thread(target=_visit_and_push, args=(copy_link,), daemon=True).start()
+                    # counter.inc()
+
+                    thread = threading.Thread(target=_visit_and_push, args=(copy_link,), daemon=True)
+                    thread.start()
+                    threads.append(thread)
 
 
         # while not counter.iszero():
         #     time.sleep(0.05)
-        wait_until(lambda:counter.iszero())
+        # wait_until(lambda:counter.iszero())
+        for thread in threads:
+            thread.join()
 
         #stored XSS 확인: 전체 다시 검사
+        threads: list[threading.Thread] = []
         for link in links:
-            counter.inc()
-            threading.Thread(target=_visit_and_push, args=(link,), daemon=True).start()
+            # counter.inc()
+            thread = threading.Thread(target=_visit_and_push, args=(link,), daemon=True)
+            thread.start()
+            threads.append(thread)
 
         # while not counter.iszero():
         #     time.sleep(0.05)
-        wait_until(lambda:counter.iszero())
+        # wait_until(lambda:counter.iszero())
+        for thread in threads:
+            thread.join()
 
     finally:
         if usejs and own_driver_pool:

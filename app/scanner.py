@@ -15,7 +15,7 @@ def scan(target: str, usejs: bool = True, driver_pool: Optional[Pool] = None, dr
     logger.debug("----------------- scanner start -----------------")
     visited = []
     to_visit = [Link(target)]
-    counter = Counter()
+    # counter = Counter()
     local_cookies: dict[str, str] = cookies.copy()
 
     logger.debug(f"target: {target}")
@@ -71,19 +71,36 @@ def scan(target: str, usejs: bool = True, driver_pool: Optional[Pool] = None, dr
             links = page.parse_links()
             to_visit.extend(links)
         finally:
-            counter.dec()
+            # counter.dec()
+            ...
+
+    threads: list[threading.Thread] = []
+    def _thread_alive():
+        # i = 0
+        # for thread in threads:
+        while 1:
+            if len(threads) <= 0:
+                return False
+            thread = threads[0]
+            if thread.is_alive():
+                return True
+            else:
+                del threads[0]
+
 
     
     try:
-        while to_visit or not counter.iszero():
+        while to_visit or _thread_alive():
             if to_visit:
                 # logger.debug(f"to_visit: {to_visit}")
                 link = to_visit.pop(0)
                 if link in visited: #링크를 to_visit에 입력할 때, samedomain이나 valuable인지 등 다 체크해서 입력해야하네.
                     continue
-                counter.inc()
+                # counter.inc()
                 visited.append(link)
-                threading.Thread(target=_visit_and_push, args=(link,), daemon=True).start()
+                thread = threading.Thread(target=_visit_and_push, args=(link,), daemon=True)
+                thread.start()
+                threads.append(thread)
             else:
                 time.sleep(0.05)
     finally:

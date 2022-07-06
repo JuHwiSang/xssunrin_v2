@@ -26,8 +26,9 @@ def main():
     driver_show = args.driver_show
 
     if driver_show:
-        kwargs = {"driver_options": chrome_options_no_headless}
+        kwargs = {"chrome_options": chrome_options_no_headless}
     else:
+        # print('check')
         kwargs = {}
 
     if usejs:
