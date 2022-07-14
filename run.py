@@ -1,9 +1,10 @@
-import requests
 from app.scanner import scan
 from app.attacker import xss
 from app.multidriver import Pool, chrome_options_no_headless
 from app.web import CSRF, Link, Page, parsecsrf
+from app.logger import logger
 
+import requests
 import json
 import argparse
 
@@ -18,6 +19,9 @@ def get_args():
     parser.add_argument("--driver-show", help="Show selenium window.", action="store_true", default=False)
     return parser.parse_args()
 
+def static_request(link: Link, cookies: dict[str, str]) -> Page:
+    res = requests.request(link.method, link.url, params=link.params, data=link.data, cookies=cookies)
+    return Page(link, res.text, res.status_code, cookies=res.cookies)
 
 def main():
     args = get_args()
@@ -31,51 +35,37 @@ def main():
     if driver_show:
         kwargs = {"chrome_options": chrome_options_no_headless}
     else:
-        # print('check')
         kwargs = {}
 
     if usejs:
         pool = Pool(driver_pool_size, **kwargs)
-        def _request(link: Link, cookies: dict[str, str], avoidcsrf: bool = True) -> Page:
-            if avoidcsrf and link.iscsrf():
-                params, data = _getcsrf(link, cookies)
-                link = link.copy(params=params, data=data)
-                page = pool.request(link, cookies=cookies)
-                link.csrf.unlock()
-            else:
-                page = pool.request(link, cookies=cookies)
-            return page
+        _request = pool.request
     else:
-        def _request(link: Link, cookies: dict[str, str], avoidcsrf: bool = True) -> Page:
-            if avoidcsrf and link.iscsrf():
-                params, data = _getcsrf(link, cookies)
-                link = link.copy(params=params, data=data)
-                res = requests.request(link.method, link.url, params=link.params, data=link.data, cookies=cookies)
-                page = Page(link, res.text, res.cookies)
-                link.csrf.unlock()
-            else:
-                res = requests.request(link.method, link.url, params=link.params, data=link.data, cookies=cookies)
-                page = Page(link, res.text, res.cookies)
-            return page
+        _request = static_request
 
-
-
-
+    status_char = {2: '●', 3: '●', 4: '○', 5: '○'}
+    def _request_csrf(link: Link, cookies: dict[str, str], avoidcsrf: bool = True) -> Page:
+        if avoidcsrf and link.iscsrf():
+            params, data = _getcsrf(link, cookies)
+            link = link.copy(params=params, data=data)
+            page = _request(link, cookies=cookies)
+            link.csrf.unlock()
+        else:
+            page = _request(link, cookies=cookies)
+        logger.debug(f"{status_char[page.status//100]} {page.status} {link.method:<4s} {link.url}")
+        return page
 
 
     def _getcsrf(link: Link, cookies: dict[str, str]) -> CSRF:
         link.csrf.untilunlock()
         link.csrf.lock()
-        page = _request(link.parent, cookies)
+        page = _request_csrf(link.parent, cookies)
         return parsecsrf(page.source, link.csrf)
 
-
-
-
     try:
-        links = scan(target, _request, cookies=cookies)
+        links = scan(target, _request_csrf, cookies=cookies)
         print("scan result:", links)
-        succeed = xss(links, _request, cheat_sheet_path=xss_cheat_sheet, cookies=cookies)
+        succeed = xss(links, _request_csrf, cheat_sheet_path=xss_cheat_sheet, cookies=cookies)
         print("XSS result:", succeed)
     finally:
         if usejs:

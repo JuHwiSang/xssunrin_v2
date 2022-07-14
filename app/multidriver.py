@@ -1,3 +1,4 @@
+import json
 import os
 
 from app.utils.helpers import selenium_cookie_to_normal
@@ -6,7 +7,8 @@ os.environ['WDM_LOG'] = '50'
 from selenium.webdriver import Chrome
 from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import NoAlertPresentException
-from selenium.webdriver.chrome.service import Service
+# from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from webdriver_manager.chrome import ChromeDriverManager
 from app.web import Link, Page
 from app.logger import logger
@@ -20,6 +22,8 @@ chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
 chrome_options_no_headless = Options()
 chrome_options_no_headless.add_experimental_option('excludeSwitches', ['enable-logging'])
 chrome_path = ChromeDriverManager().install()
+capabilities = DesiredCapabilities.CHROME.copy()
+capabilities['goog:loggingPrefs'] = {'performance': 'ALL'}
 
 
 def create_send_script(method: str, url: str, data: dict[str, str]) -> str:
@@ -35,6 +39,7 @@ def create_send_script(method: str, url: str, data: dict[str, str]) -> str:
     return script
 
 
+
 class Driver(Chrome):
     # driver: Chrome
     occupied: bool
@@ -46,7 +51,7 @@ class Driver(Chrome):
     def __init__(self, *args, **kwargs):
         self.occupied = False
         # self.havnt_requested = True
-        default_kwargs = {"executable_path" : chrome_path, "chrome_options" : chrome_options}
+        default_kwargs = {"executable_path" : chrome_path, "chrome_options" : chrome_options, "desired_capabilities": capabilities}
         default_kwargs.update(kwargs)
         super().__init__(*args, **default_kwargs)
 
@@ -60,8 +65,17 @@ class Driver(Chrome):
         # if link.method == "POST": logger.debug(f"post link: {link.uri}, currernt_path: {self.current_url}")
         # self.execute_script("alert('um?');") #test
         alerts = self.get_alerts()
-        page = Page(link, self.page_source, alerts, selenium_cookie_to_normal(self.get_cookies()))
+        status = self.get_status()
+        page = Page(link, self.page_source, status, alerts=alerts, cookies=selenium_cookie_to_normal(self.get_cookies()))
         return page
+
+    def get_status(self):
+        logs = self.get_log('performance')
+        for log in logs:
+            if log['message']:
+                d = json.loads(log['message'])
+                if d['message'].get('method') == "Network.responseReceived":
+                    return d['message']['params']['response']['status']
 
     def get_alerts(self) -> list[str]:
         alerts = []
@@ -129,7 +143,7 @@ class Pool():
     #         self.request(link)
 
     def request(self, link: Link, cookies: dict[str, str] = {}) -> Page:
-        logger.debug(f"{link.method} {link.uri} {link.data}")
+        # logger.debug(f"{link.method} {link.uri} {link.data}")
         with self.get_usable_driver() as driver:
             driver.init_first_request(link)
             driver.add_cookies(cookies)

@@ -90,7 +90,7 @@ def find_payload_id(regex: re.Pattern, text: str) -> int | None:
         return id
     return None
 
-def xss(links: list[Link], _request: Callable[[Link, dict[str, str]], Page], cheat_sheet_path: Optional[str] = None, cookies: dict[str, str] = {}) -> list[AttackLog]:
+def xss(links: list[Link], _request_csrf: Callable[[Link, dict[str, str]], Page], cheat_sheet_path: Optional[str] = None, cookies: dict[str, str] = {}) -> list[AttackLog]:
 
     if cheat_sheet_path is None:
         raise ValueError("No cheat sheet selected.")
@@ -200,7 +200,7 @@ def xss(links: list[Link], _request: Callable[[Link, dict[str, str]], Page], che
             # link = link.set_csrf_token()
             # page = driver_pool.request(link)
             # page = _request(link)
-            page = _request(link, local_cookies)
+            page = _request_csrf(link, local_cookies)
             # logger.debug(f"page.alerts: {page.alerts}")
             xss_log_id = _is_xss(page)
             if xss_log_id is not None:

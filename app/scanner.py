@@ -11,7 +11,7 @@ import time
 
 
 
-def scan(target: str, _request: Callable[[Link, dict[str, str]], Page], cookies: dict[str, str] = {}):
+def scan(target: str, _request_csrf: Callable[[Link, dict[str, str]], Page], cookies: dict[str, str] = {}):
     logger.debug("----------------- scanner start -----------------")
     visited = []
     to_visit = [Link(target)]
@@ -65,16 +65,13 @@ def scan(target: str, _request: Callable[[Link, dict[str, str]], Page], cookies:
     #         # logger.debug(f"close thread: {link.url}")
 
     def _visit_and_push(link: Link):
-        try:
-            # page = _request(link)
-            # page = link.click(_request)
-            page = _request(link, local_cookies)
-            links = page.parse_links()
-            local_cookies.update(page.cookies)
-            to_visit.extend(links)
-        finally:
-            # counter.dec()
-            ...
+        # page = _request(link)
+        # page = link.click(_request)
+        page = _request_csrf(link, local_cookies)
+        # if page.status//100 in [2, 3]:
+        links = page.parse_links()
+        local_cookies.update(page.cookies)
+        to_visit.extend(links)
 
     threads: list[threading.Thread] = []
     def _thread_alive() -> bool:

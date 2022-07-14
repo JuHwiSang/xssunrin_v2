@@ -122,12 +122,14 @@ class Link:
 class Page:
     source: str
     link: Link
+    status: int
     alerts: list[str]
     cookies: dict[str, str]
 
-    def __init__(self, link, source, alerts=[], cookies={}) -> None:
+    def __init__(self, link, source, status, alerts=[], cookies={}) -> None:
         self.source = source
         self.link = link
+        self.status = status
         self.alerts = alerts
         self.cookies = cookies
     
