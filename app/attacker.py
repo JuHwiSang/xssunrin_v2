@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Callable, Optional
 
 import requests
 from app.utils.helpers import add_element_title, requests_cookie_to_normal, split_by_method, wait_until
@@ -90,7 +90,7 @@ def find_payload_id(regex: re.Pattern, text: str) -> int | None:
         return id
     return None
 
-def xss(links: list[Link], usejs: bool = True, driver_pool: Optional[Pool] = None, driver_pool_size: int = 3, cheat_sheet_path: Optional[str] = None, cookies: dict[str, str] = {}) -> list[AttackLog]:
+def xss(links: list[Link], _request: Callable[[Link, dict[str, str]], Page], cheat_sheet_path: Optional[str] = None, cookies: dict[str, str] = {}) -> list[AttackLog]:
 
     if cheat_sheet_path is None:
         raise ValueError("No cheat sheet selected.")
@@ -114,47 +114,59 @@ def xss(links: list[Link], usejs: bool = True, driver_pool: Optional[Pool] = Non
     # logger.debug(f"target: {target}")
 
     payload_forms, payload_regexs = read_cheat_sheet(cheat_sheet_path)
-    print(payload_forms, payload_regexs)
-    if usejs:
-        if driver_pool is None:
-            own_driver_pool = True
-            driver_pool = Pool(driver_pool_size)
-        else:
-            own_driver_pool = False
+    # print(payload_forms, payload_regexs)
+    # if usejs:
+    #     if driver_pool is None:
+    #         own_driver_pool = True
+    #         driver_pool = Pool(driver_pool_size)
+    #     else:
+    #         own_driver_pool = False
 
-        def _request(link: Link):
-            page = driver_pool.request(link, cookies=local_cookies)
-            # _add_local_cookies(page.cookies)
-            local_cookies.update(page.cookies)
-            return page
-        def _is_xss(page: Page):
-            for alert in page.alerts:
-                # searched = alert_payload_regex.search(alert)
-                # if searched is not None:
-                #     id = int(searched.group(1))
-                #     return id
-                id = find_payload_id(alert_payload_regex, alert)
-                if id is not None:
-                    return id
-            return None
+    #     def _request(link: Link):
+    #         page = driver_pool.request(link, cookies=local_cookies)
+    #         # _add_local_cookies(page.cookies)
+    #         local_cookies.update(page.cookies)
+    #         return page
+    #     def _is_xss(page: Page):
+    #         for alert in page.alerts:
+    #             # searched = alert_payload_regex.search(alert)
+    #             # if searched is not None:
+    #             #     id = int(searched.group(1))
+    #             #     return id
+    #             id = find_payload_id(alert_payload_regex, alert)
+    #             if id is not None:
+    #                 return id
+    #         return None
 
-    else:
-        def _request(link: Link):
-            logger.debug(f"{link.method} {link.uri} {link.data}")
-            res = requests.request(link.method, link.url, params=link.params, data=link.data, cookies=local_cookies)
-            # _add_local_cookies(map(lambda x:{'name':x.name, 'value':x.value}, res.cookies))
-            local_cookies.update(requests_cookie_to_normal(res.cookies))
-            return Page(link, res.text, cookies=local_cookies)
-        def _is_xss(page: Page):
-            # searched = payload_regex_entire.search(page.source)
-            # if searched is not None:
-            #     id = int(searched.group(1))
-            #     return id
-            for regex in payload_regexs:
-                id = find_payload_id(regex, page.source)
-                if id is not None:
-                    return id
-            return None
+    # else:
+    #     def _request(link: Link):
+    #         logger.debug(f"{link.method} {link.uri} {link.data}")
+    #         res = requests.request(link.method, link.url, params=link.params, data=link.data, cookies=local_cookies)
+    #         # _add_local_cookies(map(lambda x:{'name':x.name, 'value':x.value}, res.cookies))
+    #         local_cookies.update(requests_cookie_to_normal(res.cookies))
+    #         return Page(link, res.text, cookies=local_cookies)
+    #     def _is_xss(page: Page):
+    #         # searched = payload_regex_entire.search(page.source)
+    #         # if searched is not None:
+    #         #     id = int(searched.group(1))
+    #         #     return id
+    #         for regex in payload_regexs:
+    #             id = find_payload_id(regex, page.source)
+    #             if id is not None:
+    #                 return id
+    #         return None
+
+    def _is_xss(page: Page):
+        for alert in page.alerts:
+            id = find_payload_id(alert_payload_regex, alert)
+            if id is not None:
+                return id
+        for regex in payload_regexs:
+            id = find_payload_id(regex, page.source)
+            if id is not None:
+                return id
+        return None
+
             
 
     # def find_csrf_token(link: Link) -> Link:
@@ -188,7 +200,7 @@ def xss(links: list[Link], usejs: bool = True, driver_pool: Optional[Pool] = Non
             # link = link.set_csrf_token()
             # page = driver_pool.request(link)
             # page = _request(link)
-            page = link.click(_request)
+            page = _request(link, local_cookies)
             # logger.debug(f"page.alerts: {page.alerts}")
             xss_log_id = _is_xss(page)
             if xss_log_id is not None:
@@ -260,9 +272,9 @@ def xss(links: list[Link], usejs: bool = True, driver_pool: Optional[Pool] = Non
             thread.join()
 
     finally:
-        if usejs and own_driver_pool:
-            driver_pool.quit()
+        # if usejs and own_driver_pool:
+        #     driver_pool.quit()
+        ...
 
     logger.debug("XSS end")
     return succeed
-    ...

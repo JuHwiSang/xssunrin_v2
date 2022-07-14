@@ -1,7 +1,10 @@
-import json
+import requests
 from app.scanner import scan
 from app.attacker import xss
 from app.multidriver import Pool, chrome_options_no_headless
+from app.web import CSRF, Link, Page, parsecsrf
+
+import json
 import argparse
 
 
@@ -33,13 +36,46 @@ def main():
 
     if usejs:
         pool = Pool(driver_pool_size, **kwargs)
+        def _request(link: Link, cookies: dict[str, str], avoidcsrf: bool = True) -> Page:
+            if avoidcsrf and link.iscsrf():
+                params, data = _getcsrf(link, cookies)
+                link = link.copy(params=params, data=data)
+                page = pool.request(link, cookies=cookies)
+                link.csrf.unlock()
+            else:
+                page = pool.request(link, cookies=cookies)
+            return page
     else:
-        pool = None
+        def _request(link: Link, cookies: dict[str, str], avoidcsrf: bool = True) -> Page:
+            if avoidcsrf and link.iscsrf():
+                params, data = _getcsrf(link, cookies)
+                link = link.copy(params=params, data=data)
+                res = requests.request(link.method, link.url, params=link.params, data=link.data, cookies=cookies)
+                page = Page(link, res.text, res.cookies)
+                link.csrf.unlock()
+            else:
+                res = requests.request(link.method, link.url, params=link.params, data=link.data, cookies=cookies)
+                page = Page(link, res.text, res.cookies)
+            return page
+
+
+
+
+
+
+    def _getcsrf(link: Link, cookies: dict[str, str]) -> CSRF:
+        link.csrf.untilunlock()
+        link.csrf.lock()
+        page = _request(link.parent, cookies)
+        return parsecsrf(page.source, link.csrf)
+
+
+
 
     try:
-        links = scan(target, driver_pool=pool, usejs=usejs, cookies=cookies)
+        links = scan(target, _request, cookies=cookies)
         print("scan result:", links)
-        succeed = xss(links, driver_pool=pool, usejs=usejs, cheat_sheet_path=xss_cheat_sheet, cookies=cookies)
+        succeed = xss(links, _request, cheat_sheet_path=xss_cheat_sheet, cookies=cookies)
         print("XSS result:", succeed)
     finally:
         if usejs:

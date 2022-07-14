@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Callable, Optional
 
 import requests
 from app.utils.counter import Counter
@@ -11,7 +11,7 @@ import time
 
 
 
-def scan(target: str, usejs: bool = True, driver_pool: Optional[Pool] = None, driver_pool_size: int = 3, cookies: dict[str, str] = {}):
+def scan(target: str, _request: Callable[[Link, dict[str, str]], Page], cookies: dict[str, str] = {}):
     logger.debug("----------------- scanner start -----------------")
     visited = []
     to_visit = [Link(target)]
@@ -21,24 +21,24 @@ def scan(target: str, usejs: bool = True, driver_pool: Optional[Pool] = None, dr
     logger.debug(f"target: {target}")
     logger.debug(f"initial cookies: {local_cookies}")
 
-    if usejs:
-        if driver_pool is None:
-            own_driver_pool = True
-            driver_pool = Pool(driver_pool_size)
-        else:
-            own_driver_pool = False
+    # if usejs:
+    #     if driver_pool is None:
+    #         own_driver_pool = True
+    #         driver_pool = Pool(driver_pool_size)
+    #     else:
+    #         own_driver_pool = False
 
-        def _request(link: Link):
-            page = driver_pool.request(link, cookies=local_cookies)
-            local_cookies.update(page.cookies)
-            return page
+    #     def _request(link: Link):
+    #         page = driver_pool.request(link, cookies=local_cookies)
+    #         local_cookies.update(page.cookies)
+    #         return page
 
-    else:
-        def _request(link: Link):
-            logger.debug(f"{link.method} {link.uri} {link.data}")
-            res = requests.request(link.method, link.url, params=link.params, data=link.data, cookies=local_cookies)
-            local_cookies.update(requests_cookie_to_normal(res.cookies))
-            return Page(link, res.text, cookies=res.cookies)
+    # else:
+    #     def _request(link: Link):
+    #         logger.debug(f"{link.method} {link.uri} {link.data}")
+    #         res = requests.request(link.method, link.url, params=link.params, data=link.data, cookies=local_cookies)
+    #         local_cookies.update(requests_cookie_to_normal(res.cookies))
+    #         return Page(link, res.text, cookies=res.cookies)
 
     #     def visit_and_push(link: Link):
     #         # logger.debug(f"{link.method} {link.uri}")
@@ -67,46 +67,40 @@ def scan(target: str, usejs: bool = True, driver_pool: Optional[Pool] = None, dr
     def _visit_and_push(link: Link):
         try:
             # page = _request(link)
-            page = link.click(_request)
+            # page = link.click(_request)
+            page = _request(link, local_cookies)
             links = page.parse_links()
+            local_cookies.update(page.cookies)
             to_visit.extend(links)
         finally:
             # counter.dec()
             ...
 
     threads: list[threading.Thread] = []
-    def _thread_alive():
-        # i = 0
-        # for thread in threads:
-        while 1:
-            if not threads:
-                return False
+    def _thread_alive() -> bool:
+        for thread in threads[:]:
+            if thread.is_alive():
+                return True
             else:
-                thread = threads[0]
-                if thread.is_alive():
-                    return True
-                else:
-                    del threads[0]
+                threads.remove(thread)
+        return False
+
 
 
     
-    try:
-        while to_visit or _thread_alive():
-            if to_visit:
-                # logger.debug(f"to_visit: {to_visit}")
-                link = to_visit.pop(0)
-                if link in visited: #링크를 to_visit에 입력할 때, samedomain이나 valuable인지 등 다 체크해서 입력해야하네.
-                    continue
-                # counter.inc()
-                visited.append(link)
-                thread = threading.Thread(target=_visit_and_push, args=(link,), daemon=True)
-                thread.start()
-                threads.append(thread)
-            else:
-                time.sleep(0.05)
-    finally:
-        if usejs and own_driver_pool:
-            driver_pool.quit()
+    while to_visit or _thread_alive():
+        if to_visit:
+            # logger.debug(f"to_visit: {to_visit}")
+            link = to_visit.pop(0)
+            if link in visited: #링크를 to_visit에 입력할 때, samedomain이나 valuable인지 등 다 체크해서 입력해야하네.
+                continue
+            # counter.inc()
+            visited.append(link)
+            thread = threading.Thread(target=_visit_and_push, args=(link,), daemon=True)
+            thread.start()
+            threads.append(thread)
+        else:
+            time.sleep(0.05)
 
     logger.debug("scanner end")
     return visited
