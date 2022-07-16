@@ -2,8 +2,10 @@ from turtle import st
 from typing import Callable, Optional
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit
 from bs4 import BeautifulSoup as bp
+import requests
 
 from app.utils.helpers import add_element_title, split_by_method, wait_until
+from app.logger import logger
 from xeger import xeger
 import time
 
@@ -227,3 +229,33 @@ def parsecsrf(source: str, csrf: CSRF):
     soup = bp(source, 'html.parser')
     token = soup.select_one(f"input[name={csrf.name}]")['value']
     return split_by_method(csrf.storage, {csrf.name: token})
+
+
+class _RequestContext():
+    def __call__(self, link: Link, cookies: dict[str, str]) -> Page: ...
+
+status_char = {2: '●', 3: '●', 4: '○', 5: '○'}
+def wrap_request2csrf(request_without_csrf: _RequestContext):
+    def _request(link: Link, cookies: dict[str, str], avoidcsrf: bool = True) -> Page:
+        if avoidcsrf and link.iscsrf():
+            params, data = _getcsrf(link, cookies)
+            link = link.copy(params=params, data=data)
+            page = request_without_csrf(link, cookies=cookies)
+            link.csrf.unlock()
+        else:
+            page = request_without_csrf(link, cookies=cookies)
+        logger.debug(f"{status_char[page.status//100]} {page.status} {link.method:<4s} {link.url}")
+        return page
+
+    def _getcsrf(link: Link, cookies: dict[str, str]) -> CSRF:
+        link.csrf.untilunlock()
+        link.csrf.lock()
+        page = _request(link.parent, cookies)
+        return parsecsrf(page.source, link.csrf)
+    
+    return _request
+
+
+def static_request(link: Link, cookies: dict[str, str]) -> Page:
+    res = requests.request(link.method, link.url, params=link.params, data=link.data, cookies=cookies)
+    return Page(link, res.text, res.status_code, cookies=res.cookies)
