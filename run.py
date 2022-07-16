@@ -41,9 +41,9 @@ def main():
         _request = wrap_request2csrf(static_request)
 
     try:
-        links = scan(target, _request, cookies=cookies)
+        links = scan(_request, target, cookies=cookies)
         print("scan result:", links)
-        succeed = xss(links, _request, cheat_sheet_path=xss_cheat_sheet, cookies=cookies)
+        succeed = xss(_request, links, cookies=cookies, cheat_sheet_path=xss_cheat_sheet)
         print("XSS result:", succeed)
     finally:
         if usejs:

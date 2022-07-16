@@ -11,7 +11,7 @@ import time
 
 
 
-def scan(target: str, _request_csrf: Callable[[Link, dict[str, str]], Page], cookies: dict[str, str] = {}):
+def scan(_request: Callable[[Link, dict[str, str]], Page], target: str, cookies: dict[str, str] = {}):
     logger.debug("----------------- scanner start -----------------")
     visited = []
     to_visit = [Link(target)]
@@ -67,7 +67,7 @@ def scan(target: str, _request_csrf: Callable[[Link, dict[str, str]], Page], coo
     def _visit_and_push(link: Link):
         # page = _request(link)
         # page = link.click(_request)
-        page = _request_csrf(link, local_cookies)
+        page = _request(link, local_cookies)
         # if page.status//100 in [2, 3]:
         links = page.parse_links()
         local_cookies.update(page.cookies)
