@@ -24,3 +24,7 @@ Blind XSS? Nope. It can't.
 3. Bypass csrf token.
 4. Run Javascript.
 5. Various payloads available.
+
+
+# TODO
+- add _is_xss argument

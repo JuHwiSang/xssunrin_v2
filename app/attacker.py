@@ -161,10 +161,10 @@ def xss(_request: Callable[[Link, dict[str, str]], Page], links: list[Link], coo
             id = find_payload_id(alert_payload_regex, alert)
             if id is not None:
                 return id
-        for regex in payload_regexs:
-            id = find_payload_id(regex, page.source)
-            if id is not None:
-                return id
+        # for regex in payload_regexs:
+        #     id = find_payload_id(regex, page.source)
+        #     if id is not None:
+        #         return id
         return None
 
             

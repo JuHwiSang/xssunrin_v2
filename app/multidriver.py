@@ -105,7 +105,7 @@ class Driver(Chrome):
         self.get(link.url_without_path)
         self.implicitly_wait(5)
         # self.havnt_requested = False
-        self.init_first_request = lambda *a, **k:...
+        self.init_first_request = lambda self, link:...
 
     # def quit(self) -> None:
     #     self.driver.quit()
